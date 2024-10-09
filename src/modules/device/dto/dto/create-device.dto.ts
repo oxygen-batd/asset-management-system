@@ -1,11 +1,25 @@
-import { ArrayMinSize, IsArray, IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional } from 'class-validator';
 export class CreateDeviceDto {
-    @IsNotEmpty()
-    readonly locationId: string;
 
     @IsNotEmpty()
-    readonly organizationId: string;
+    @IsString()
+    readonly serial: string;
 
     @IsNotEmpty()
-    readonly status: boolean;
+    @IsEnum(['active', 'inactive'])
+    readonly status: string;
+
+    @IsOptional()
+    @IsString()
+    readonly description?: string;
+
+    @IsOptional()
+    @IsString()
+    readonly type?: string;
+
+    @IsNotEmpty()
+    readonly locationId: string; 
+
+    @IsNotEmpty()
+    readonly organizationId: string; 
 }

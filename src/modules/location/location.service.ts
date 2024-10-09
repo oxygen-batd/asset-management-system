@@ -92,7 +92,9 @@ export class LocationService {
 
     async findAll(): Promise<Location[]> {
         try {
-            return await this.locationModel.find().exec();
+            return await this.locationModel.find()
+            .select('-updatedAt -__v -_id')
+            .exec();
         } catch (error) {
             this.logger.error(`Error fetching locations: ${error.message}`);
             throw new BadRequestException('Failed to fetch locations');

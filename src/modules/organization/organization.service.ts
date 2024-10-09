@@ -96,7 +96,9 @@ export class OrganizationService {
 
     async findAll(): Promise<Organization[]> {
         try {
-            return await this.organizationModel.find().exec();
+            return await this.organizationModel.find()
+            .select('-updatedAt -__v -_id')
+            .exec();
         } catch (error) {
             this.logger.error(`Error fetching organizations: ${error.message}`);
             throw new BadRequestException('Failed to fetch organizations');

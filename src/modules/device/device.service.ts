@@ -3,13 +3,15 @@ import { BadRequestException, Injectable, NotFoundException, Logger, Scope, Inje
 import { Model } from 'mongoose';
 import { Observable, from, of, throwError } from 'rxjs';
 import { catchError, switchMap, map } from 'rxjs/operators';
-import { DEVICE_MODEL } from '../../database/constants';
+import { DEVICE_MODEL, ORGANIZATION_MODEL, LOCATION_MODEL } from '../../database/constants';
 
 import { Device } from 'src/database/schemas/device.schema';
+import { Organization } from 'src/database/schemas/organization.schema';
+import { Location } from 'src/database/schemas/location.schema';
+
 import { ResDeviceDto } from './dto/dto/response.device.dto';
 import { CreateDeviceDto } from './dto/dto/create-device.dto';
 import { UpdateDeviceDto } from './dto/dto/update-device.dto';
-
 
 @Injectable({ scope: Scope.DEFAULT })
 export class DeviceService {
@@ -17,6 +19,8 @@ export class DeviceService {
 
     constructor(
         @Inject(DEVICE_MODEL) private deviceModel: Model<Device>,
+        @Inject(ORGANIZATION_MODEL) private organizationModel: Model<Organization>,
+        @Inject(LOCATION_MODEL) private locationModel: Model<Location>,
     ) {
         this.logger.log('DeviceService initialized...');
     }
@@ -24,9 +28,16 @@ export class DeviceService {
     findAll(): Observable<{ device: Device[] }> {
         return from(
             this.deviceModel.find()
-                .populate('locationId')
-                .populate('organizationId')
-                .exec()
+            .populate({
+                path: 'locationId',
+                select: '-updatedAt -__v -_id -id'
+            })
+            .populate({
+                path: 'organizationId',
+                select: '-_id -id'
+            })
+            .select('-updatedAt -__v -_id -id')
+            .exec()
         ).pipe(
             map(devices => {
                 return { device: devices };
@@ -68,7 +79,23 @@ export class DeviceService {
     
     async save(createDeviceDto: CreateDeviceDto): Promise<Device> {
         try {
-            const createdDevice = new this.deviceModel(createDeviceDto);
+            const organization = await this.organizationModel.findById(createDeviceDto.organizationId).exec();
+            if (!organization) {
+                throw new BadRequestException('No organization found. Please ensure at least one organization exists.');
+            }
+
+            const location = await this.locationModel.findById(createDeviceDto.locationId).exec();
+            if (!location) {
+                throw new BadRequestException('No location found. Please ensure at least one location exists.');
+            }
+
+            const createdDevice = new this.deviceModel({
+                ...createDeviceDto,
+                organizationId: organization._id,
+                locationId: location._id, 
+                created_at: new Date(),
+            });
+    
             return await createdDevice.save();
         } catch (error) {
             this.logger.error(`Error creating device: ${error.message}`);
@@ -79,7 +106,7 @@ export class DeviceService {
     async updateDevice(id: string, updateDeviceDto: UpdateDeviceDto): Promise<{ device: Device }> {
         try {
             const updatedDevice = await this.deviceModel.findByIdAndUpdate(id, updateDeviceDto, { new: true })
-                .populate('LocationId')
+                .populate('locationId')
                 .populate('organizationId')
                 .exec();
             if (!updatedDevice) {
@@ -98,7 +125,7 @@ export class DeviceService {
     delete(id: string): Observable<Device> {
         return from(
             this.deviceModel.findByIdAndDelete(id)
-                .populate('LocationId')
+                .populate('locationId')
                 .populate('organizationId')
                 .exec()
         ).pipe(
